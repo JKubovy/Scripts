@@ -1,7 +1,7 @@
 ﻿#!/usr/bin/env python3
 # Tipsport Playlist Generator
 # This script generate strm playlist from video-stream of ELH on tipsport.cz
-# Using	Linux:	tpg.py stream url > file.strm
+# Using:	tpg.py stream url > file.strm
 #
 # Fill your credentials to tipsport.cz site below
 credentials = ('user', 'password')
@@ -40,17 +40,23 @@ def checkLogin():
 	else:
 		return False
 def parseStreamDWRresponse(responseText):
+	# Get url from response
 	url = re.search('meta base\=\"(.*)\"', responseText)
 	if (not url.group(1)):
-		eprint('Unable parse stream metadata: url')
+		eprint('Unable to parse stream metadata: url')
 		sys.exit()
 	url = url.group(1)
+	# Get playpath from response
 	playpath = re.search('video src\=\"(.*?)\"', responseText)
 	if (not playpath.group(1)):
-		eprint('Unable parse stream metadata: playpath')
+		eprint('Unable to parse stream metadata: playpath')
 		sys.exit()
 	playpath = playpath.group(1)
-	app = url.split(':80/')[-1]
+	# Get app by splitting url
+	app = url.split(':80/')
+	if (len(app) == 1):
+		eprint('Unable to parse stream metadata: app')
+		sys.exit()
 	return (url, playpath, app)
 # Get scriptSessionId from page for proper DWRScript call
 def getToken(page):
@@ -123,7 +129,7 @@ def checkCategory(url):
 	response = session.post(DWRScript, payload)
 	competition = re.search('s0\.competition\=\"(.*?)\"', response.text)
 	if (not competition.group(1)):
-		eprint('Unable detect competition')
+		eprint('Unable to detect competition')
 		return False
 	competition = competition.group(1)
 	if (competition in ['Tipsport extraliga', 'CZ Tipsport extraliga']):
@@ -140,7 +146,7 @@ def parseArgs():
 		if (url.startswith('www')): 
 			url = 'https://' + url
 		return url
-def printPlaylist(rtmp, playpath, app, pageURL, live='true', swfVfy='true'):	# TODO ? remove swfVfy and fleshVer
+def printPlaylist(rtmp, playpath, app, pageURL, live='true', swfVfy='true'):
 	swf = 'https://www.tipsport.org/scripts/libs/flowplayer/flowplayer.swf'
 	flashVer = 'WIN\\2024,0,0,194'
 	print('{0} playpath={1} app={2} pageURL={3} flashVer={7} swfUrl={4} live={5} swfVfy={6}'.format(rtmp, playpath, app, pageURL, swf, live, swfVfy, flashVer))
