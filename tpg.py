@@ -57,6 +57,7 @@ def parseStreamDWRresponse(responseText):
 	if (len(app) == 1):
 		eprint('Unable to parse stream metadata: app')
 		sys.exit()
+	app = app[-1]
 	return (url, playpath, app)
 # Get scriptSessionId from page for proper DWRScript call
 def getToken(page):
