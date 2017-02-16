@@ -11,20 +11,19 @@ import sys
 import random
 import requests
 
-session = None
+session = requests.session()
 
 # print to stderr
 def eprint(message):
-    sys.stderr.write(message)
+	sys.stderr.write(message)
+	sys.stderr.write('\n')
 # Generate string with 10 random digits
 def generatefPrint(lenght):
 	result = ''.join(random.SystemRandom().choice('0123456789') for _ in range(lenght))
 	return result
 # Login to tvtipsport.cz site and store session
 def login(user, password):
-	global session
 	agent = "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2883.87 Safari/537.36 OPR/42.0.2393.137"
-	session = requests.session()
 	session.get('https://www.tipsport.cz/')	# load cookies
 	payload = {	'agent': agent,
 				'requestURI': '/',
@@ -39,16 +38,20 @@ def checkLogin():
 		return True
 	else:
 		return False
+# Parse response in format <smil>...</smil>
 def parseStreamDWRresponse(responseText):
 	# Get url from response
+	if (not '\<smil\>' in responseText):
+		eprint('Unsupported format of stream metadata')
+		sys.exit()
 	url = re.search('meta base\=\"(.*)\"', responseText)
-	if (not url.group(1)):
+	if (url == None):
 		eprint('Unable to parse stream metadata: url')
 		sys.exit()
 	url = url.group(1)
 	# Get playpath from response
 	playpath = re.search('video src\=\"(.*?)\"', responseText)
-	if (not playpath.group(1)):
+	if (playpath == None):
 		eprint('Unable to parse stream metadata: playpath')
 		sys.exit()
 	playpath = playpath.group(1)
@@ -62,7 +65,7 @@ def parseStreamDWRresponse(responseText):
 # Get scriptSessionId from page for proper DWRScript call
 def getToken(page):
 	token = re.search('JAWR.dwr_scriptSessionId=\'([0-9A-Z]+)\'', page)
-	if(not token.group(1)):
+	if(token == None):
 		eprint('Unable to detect scriptSessionId')
 		sys.exit()
 	token = token.group(1)
@@ -106,6 +109,54 @@ def getStreamMetadata(url):
 	url = responseUrl.group(1)
 	response = session.get(url)
 	return parseStreamDWRresponse(response.text)
+# Let the user choose stream from list
+def userSelect(matches, index_name = 0):
+	for i in range(len(matches)):
+		eprint('{0}\t{1}'.format(i+1, matches[i][index_name]))
+	found = False
+	while (not found):
+		eprint('Select one of stream by writing number {0}-{1}'.format(1, len(matches)))
+		i = input()
+		try:
+			number = int(i)
+		except ValueError:
+			eprint('Please write number')
+			continue
+		if (not number in range(1, len(matches) + 1)):
+			eprint('Wrong stream index')
+		else:
+			eprint('Chosen stream: {0}'.format(matches[number-1][index_name]))
+			found = True
+	return(matches[number-1][3])
+# Get list of all streams on tipsport.cz and call userSelect()
+def listMatches():
+	page = session.get('https://www.tipsport.cz/tv')
+	token = getToken(page.text)
+	DWRScript = 'https://www.tipsport.cz/dwr/call/plaincall/LiveOdds2DWR.getMatchesBothMenu.dwr'
+	payload={	'callCount': 1,
+				'page': '/tv',
+				'httpSessionId': '',
+				'scriptSessionId': token,
+				'c0-scriptName': 'LiveOdds2DWR',
+				'c0-methodName': 'getMatchesBothMenu',
+				'c0-id': 0,
+				'c0-param0': 'number:0',
+				'c0-param1': 'number:0',
+				'c0-param2': 'boolean:true',
+				'c0-param3': 'string:COMPETITION_SPORT',
+				'batchId': 2}
+	response = session.post(DWRScript, payload)
+	response.encoding = 'utf-8'
+	matches = re.findall('.*abbreaviation=\"(.*?)\".*competition=\"(.*?)\".*sport=\"(.*?)\".*url=\"(.*?)\".*', response.content.decode('unicode-escape'))
+	elh_matches = []
+	for m in matches:
+		if (m[1] in ['Tipsport extraliga', 'CZ Tipsport extraliga']):
+			elh_matches.append(m)
+	if (len(elh_matches) == 0):
+		eprint('No ELH stream found')
+		sys.exit()
+	url = userSelect(elh_matches)
+	return('https://www.tipsport.cz/live' + url)
 # Check if the url point to ELH stream
 def checkCategory(url):
 	page = session.get(url)
@@ -129,7 +180,7 @@ def checkCategory(url):
 				'batchId': 4}
 	response = session.post(DWRScript, payload)
 	competition = re.search('s0\.competition\=\"(.*?)\"', response.text)
-	if (not competition.group(1)):
+	if (competition == None):
 		eprint('Unable to detect competition')
 		return False
 	competition = competition.group(1)
@@ -140,26 +191,29 @@ def checkCategory(url):
 		return False
 def parseArgs():
 	if (len(sys.argv) == 1):
-		eprint('No url given')
-		sys.exit()
+		return('')
 	else:
 		url = sys.argv[-1]
 		if (url.startswith('www')): 
 			url = 'https://' + url
-		return url
+		if(checkCategory(url)):
+			return(url)
+		else:
+			sys.exit()
 def printPlaylist(rtmp, playpath, app, pageURL, live='true', swfVfy='true'):
 	swf = 'https://www.tipsport.org/scripts/libs/flowplayer/flowplayer.swf'
 	flashVer = 'WIN\\2024,0,0,194'
 	print('{0} playpath={1} app={2} pageURL={3} flashVer={7} swfUrl={4} live={5} swfVfy={6}'.format(rtmp, playpath, app, pageURL, swf, live, swfVfy, flashVer))
 def main():
 	user,password = credentials
+	url = parseArgs()
+	if (url == ''):
+		url = listMatches()
 	login(user, password)
 	if (checkLogin()):
-		url = parseArgs()
-		if (checkCategory(url)):
-			(rtmp, playpath, app) = getStreamMetadata(url)
-			printPlaylist(rtmp, playpath, app, url)
-			eprint('Playlist successful generated')
+		(rtmp, playpath, app) = getStreamMetadata(url)
+		printPlaylist(rtmp, playpath, app, url)
+		eprint('Playlist successful generated')
 	else:
 		eprint('Login to Tipsport.cz fails\ncheck credentials or internet connection')
 
