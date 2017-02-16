@@ -1,7 +1,9 @@
 ﻿#!/usr/bin/env python3
 # Tipsport Playlist Generator
 # This script generate strm playlist from video-stream of ELH on tipsport.cz
-# Using:	tpg.py stream url > file.strm
+# Using:
+#	Start stream selector:		tpg.py > file.strm	
+#	Use specific url:			tpg.py stream_url > file.strm
 #
 # Fill your credentials to tipsport.cz site below
 credentials = ('user', 'password')
