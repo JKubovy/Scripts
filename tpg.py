@@ -40,29 +40,20 @@ def checkLogin():
 		return True
 	else:
 		return False
-# Parse response in format <smil>...</smil>
+# Parse response and dig stream metadata
 def parseStreamDWRresponse(responseText):
-	# Get url from response
-	if (not '\<smil\>' in responseText):
+	# Expect <smil>...</smil> format of response
+	if ('<smil>' in responseText):
+		try:
+			url = (re.search('meta base\=\"(.*?)\"', responseText)).group(1)
+			playpath = (re.search('video src\=\"(.*?)\"', responseText)).group(1)
+			app = (url.split(':80/'))[1]
+		except (AttributeError, IndexError):
+			eprint('Unable to parse stream metadata')
+			sys.exit()
+	else:
 		eprint('Unsupported format of stream metadata')
 		sys.exit()
-	url = re.search('meta base\=\"(.*)\"', responseText)
-	if (url == None):
-		eprint('Unable to parse stream metadata: url')
-		sys.exit()
-	url = url.group(1)
-	# Get playpath from response
-	playpath = re.search('video src\=\"(.*?)\"', responseText)
-	if (playpath == None):
-		eprint('Unable to parse stream metadata: playpath')
-		sys.exit()
-	playpath = playpath.group(1)
-	# Get app by splitting url
-	app = url.split(':80/')
-	if (len(app) == 1):
-		eprint('Unable to parse stream metadata: app')
-		sys.exit()
-	app = app[-1]
 	return (url, playpath, app)
 # Get scriptSessionId from page for proper DWRScript call
 def getToken(page):
@@ -129,7 +120,7 @@ def userSelect(matches, index_name = 0):
 		else:
 			eprint('Chosen stream: {0}'.format(matches[number-1][index_name]))
 			found = True
-	return(matches[number-1][3])
+	return(number-1)
 # Get list of all streams on tipsport.cz and call userSelect()
 def listMatches():
 	page = session.get('https://www.tipsport.cz/tv')
@@ -157,7 +148,8 @@ def listMatches():
 	if (len(elh_matches) == 0):
 		eprint('No ELH stream found')
 		sys.exit()
-	url = userSelect(elh_matches)
+	index = userSelect(elh_matches)
+	url = elh_matches[index][3]
 	return('https://www.tipsport.cz/live' + url)
 # Check if the url point to ELH stream
 def checkCategory(url):
