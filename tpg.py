@@ -12,9 +12,23 @@ import re
 import sys
 import random
 import requests
+import argparse
 
 session = requests.session()
+args = None
 
+def parseArgs():
+	parser = argparse.ArgumentParser(description='Script that generate strm playlist of ELH stream on tipsport.cz')
+	parser.add_argument('url', nargs='?', default='', help='URL of ELH stream on tipsport.cz')
+	global args
+	args = parser.parse_args()
+	if (args.url == ''):
+		args.url = listMatches()
+	else:
+		if (args.url.startswith('www')): 
+			args.url = 'https://' + args.url
+		if(not checkCategory(args.url)):
+			sys.exit()
 # print to stderr
 def eprint(message):
 	sys.stderr.write(message)
@@ -153,6 +167,11 @@ def listMatches():
 	return('https://www.tipsport.cz/live' + url)
 # Check if the url point to ELH stream
 def checkCategory(url):
+	try:
+		page = session.get(url)
+	except requests.exceptions.RequestException:
+		eprint('Bad url given')
+		sys.exit()
 	page = session.get(url)
 	token = getToken(page.text)
 	relativeURL = url.replace('https://www.tipsport.cz', '')
@@ -183,30 +202,17 @@ def checkCategory(url):
 	else:
 		eprint('Stream is not ELH')
 		return False
-def parseArgs():
-	if (len(sys.argv) == 1):
-		return('')
-	else:
-		url = sys.argv[-1]
-		if (url.startswith('www')): 
-			url = 'https://' + url
-		if(checkCategory(url)):
-			return(url)
-		else:
-			sys.exit()
 def printPlaylist(rtmp, playpath, app, pageURL, live='true', swfVfy='true'):
 	swf = 'https://www.tipsport.org/scripts/libs/flowplayer/flowplayer.swf'
 	flashVer = 'WIN\\2024,0,0,194'
 	print('{0} playpath={1} app={2} pageURL={3} flashVer={7} swfUrl={4} live={5} swfVfy={6}'.format(rtmp, playpath, app, pageURL, swf, live, swfVfy, flashVer))
 def main():
 	user,password = credentials
-	url = parseArgs()
-	if (url == ''):
-		url = listMatches()
+	parseArgs()
 	login(user, password)
 	if (checkLogin()):
-		(rtmp, playpath, app) = getStreamMetadata(url)
-		printPlaylist(rtmp, playpath, app, url)
+		(rtmp, playpath, app) = getStreamMetadata(args.url)
+		printPlaylist(rtmp, playpath, app, args.url)
 		eprint('Playlist successful generated')
 	else:
 		eprint('Login to Tipsport.cz fails\ncheck credentials or internet connection')
