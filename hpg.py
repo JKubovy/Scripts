@@ -8,13 +8,19 @@ import sys
 import json
 import random
 import requests
+import unicodedata
 from datetime import date
 
 session = requests.session()
 
 # Print to stderr
 def eprint(message):
-	sys.stderr.write(message)
+	try:
+		sys.stderr.write(message)
+	except UnicodeEncodeError:	
+		text = unicodedata.normalize('NFKD', message)
+		text = text.encode("utf-8").decode("ascii","ignore")
+		sys.stderr.write(text)
 	sys.stderr.write('\n')
 def printPlaylist(rtmp, playpath, app, live='true'):
 	print('{0} playpath={1} app={2} live={3}'.format(rtmp, playpath, app, live))
@@ -35,7 +41,7 @@ def parseSMILresponse(responseText):
 # Let the user choose stream from list
 def userSelect(matches, index_name = 0):
 	for i in range(len(matches)):
-		eprint('{0}\t{1}'.format(i+1, matches[i][index_name]))
+		eprint(u'{0}\t{1}'.format(i+1, matches[i][index_name]))
 	found = False
 	while (not found):
 		eprint('Select one of stream by writing number {0}-{1}'.format(1, len(matches)))
@@ -48,7 +54,7 @@ def userSelect(matches, index_name = 0):
 		if (not number in range(1, len(matches) + 1)):
 			eprint('Wrong stream index')
 		else:
-			eprint('Chosen stream: {0}'.format(matches[number-1][index_name]))
+			eprint(u'Chosen stream: {0}'.format(matches[number-1][index_name]))
 			found = True
 	return(number-1)
 # Get all available ELH stream on hokej.cz/hokejka/tv and call userSelect()
@@ -62,7 +68,7 @@ def listMatches():
 		matches = data['57']['matches']
 		list = []
 		for match in matches:
-			list.append(['{0} - {1}'.format(match['home']['short_name'], match['visitor']['short_name']), match['home']['shortcut'].lower()])
+			list.append([u'{0} - {1}'.format(match['home']['short_name'], match['visitor']['short_name']), match['home']['shortcut'].lower()])
 		index = userSelect(list)
 		stadion = list[index][1]
 	except (KeyError, IndexError, ValueError):
