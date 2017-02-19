@@ -7,6 +7,11 @@ Usually I use [Requests](http://docs.python-requests.org/en/master/) library for
 
 ### [Tipsport Playlist Generator](tpg.py)
 For now it can generate only ELH (Extraliga ledního hokeje) streams.
+
+Before start you have to fill credentials to **your** tipsport.cz account in tpg.py:
+```
+credentials = ('user', 'password')
+```
 #### Using:
 Start selector of available streams
 ```
