@@ -13,6 +13,7 @@ import sys
 import random
 import requests
 import argparse
+import unicodedata
 
 session = requests.session()
 args = None
@@ -31,7 +32,12 @@ def parseArgs():
 			sys.exit()
 # print to stderr
 def eprint(message):
-	sys.stderr.write(message)
+	try:
+		sys.stderr.write(message)
+	except UnicodeEncodeError:	
+		text = unicodedata.normalize('NFKD', message)
+		text = text.encode("utf-8").decode("ascii","ignore")
+		sys.stderr.write(text)
 	sys.stderr.write('\n')
 # Generate string with 10 random digits
 def generatefPrint(lenght):
@@ -119,7 +125,7 @@ def getStreamMetadata(url):
 # Let the user choose stream from list
 def userSelect(matches, index_name = 0):
 	for i in range(len(matches)):
-		eprint('{0}\t{1}'.format(i+1, matches[i][index_name]))
+		eprint(u'{0}\t{1}'.format(i+1, matches[i][index_name]))
 	found = False
 	while (not found):
 		eprint('Select one of stream by writing number {0}-{1}'.format(1, len(matches)))
@@ -132,7 +138,7 @@ def userSelect(matches, index_name = 0):
 		if (not number in range(1, len(matches) + 1)):
 			eprint('Wrong stream index')
 		else:
-			eprint('Chosen stream: {0}'.format(matches[number-1][index_name]))
+			eprint(u'Chosen stream: {0}'.format(matches[number-1][index_name]))
 			found = True
 	return(number-1)
 # Get list of all streams on tipsport.cz and call userSelect()
