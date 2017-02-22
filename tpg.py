@@ -1,9 +1,10 @@
 ﻿#!/usr/bin/env python3
 # Tipsport Playlist Generator
+# Version: v0.1
 # This script generate strm playlist from video-stream of ELH on tipsport.cz
 # Using:
 #	Start stream selector:		tpg.py > file.strm	
-#	Use specific url:			tpg.py stream_url > file.strm
+#	Use specific url:		tpg.py stream_url > file.strm
 #
 # Fill your credentials to tipsport.cz site below
 credentials = ('user', 'password')
@@ -17,12 +18,16 @@ import unicodedata
 
 session = requests.session()
 args = None
+githubUrl = 'https://raw.githubusercontent.com/Xsichtik/Scripts/master/tpg.py'
 
 def parseArgs():
 	parser = argparse.ArgumentParser(description='Script that generate strm playlist of ELH stream on tipsport.cz')
 	parser.add_argument('url', nargs='?', default='', help='URL of ELH stream on tipsport.cz')
+	parser.add_argument('-c', action='store_true', help='check on GitHub if a new version is available')
+	parser.add_argument('-u', action='store_true', help='update/download source code from GitHub')
 	global args
 	args = parser.parse_args()
+def checkUrl():
 	if (args.url == ''):
 		args.url = listMatches()
 	else:
@@ -40,16 +45,47 @@ def eprint(message):
 		sys.stderr.write(text)
 	sys.stderr.write('\n')
 # Generate string with 10 random digits
-def generatefPrint(lenght):
+def generateRandomNumber(lenght):
 	result = ''.join(random.SystemRandom().choice('0123456789') for _ in range(lenght))
 	return result
+def checkNewVersion():
+	from distutils.version import StrictVersion
+	try:
+		err = 'Unable to detect current version'
+		with open(__file__, 'r') as f:
+			currentVersion = StrictVersion(re.search('# Version: v([0-9\.]+)', f.read()).group(1))
+		err = 'Unable to detect new version'
+		newCode = requests.get(githubUrl).text
+		newVersion = StrictVersion(re.search('# Version: v([0-9\.]+)', newCode).group(1))
+	except AttributeError:
+		eprint(err)
+		return
+	if (currentVersion < newVersion): eprint('New version is available\nRun script with -u parametr for update')
+	else: eprint('You already have newest version')
+def updateCode():
+	import os
+	from shutil import move
+	eprint('Are you sure you want to UPDATE script (y/n)?')
+	i = input()
+	if (i in ['y', 'Y']):
+		try:
+			newCode = requests.get(githubUrl)
+			tmpFile = os.path.dirname(__file__) + os.path.sep + '_tpg.tmp'
+			with open(tmpFile, 'w', encoding='utf-8') as f:
+				f.write(newCode.text)
+			move(tmpFile, __file__)
+			eprint('Script update status: SUCCESS')
+		except OSError:
+			eprint('Script update status: ERROR')
+	else:
+		eprint('Script update status: CANCEL')
 # Login to tvtipsport.cz site and store session
 def login(user, password):
 	agent = "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2883.87 Safari/537.36 OPR/42.0.2393.137"
 	session.get('https://www.tipsport.cz/')	# load cookies
 	payload = {	'agent': agent,
 				'requestURI': '/',
-				'fPrint': generatefPrint(10),
+				'fPrint': generateRandomNumber(10),
 				'userName': user,
 				'password': password }
 	session.post('https://www.tipsport.cz/LoginAction.do', payload)	# actual login
@@ -215,6 +251,13 @@ def printPlaylist(rtmp, playpath, app, pageURL, live='true', swfVfy='true'):
 def main():
 	user,password = credentials
 	parseArgs()
+	if (args.c):
+		checkNewVersion()
+		return
+	if (args.u):
+		updateCode()
+		return
+	checkUrl()
 	login(user, password)
 	if (checkLogin()):
 		(rtmp, playpath, app) = getStreamMetadata(args.url)
