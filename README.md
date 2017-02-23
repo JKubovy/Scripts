@@ -21,6 +21,15 @@ or generate playlist from specific URL
 ```
 tpg.py URL > playlist.strm
 ```
+#### Update:
+You can check if a new version exist on GitHub by typing
+```
+tpg.py -c
+```
+and update script by following command
+```
+tpg.py -u
+```
 
 ### [Hokejka Playlist Generator](hpg.py)
 Get stream from [hokej.cz](http://www.hokej.cz/hokejka/tv) site.
