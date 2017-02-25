@@ -1,6 +1,6 @@
 ﻿#!/usr/bin/env python3
 # Tipsport Playlist Generator
-# Version: v0.1
+# Version: v0.1.1
 # This script generate strm playlist from video-stream of ELH on tipsport.cz
 # Using:
 #	Start stream selector:		tpg.py > file.strm	
@@ -48,7 +48,7 @@ def eprint(message):
 def generateRandomNumber(lenght):
 	result = ''.join(random.SystemRandom().choice('0123456789') for _ in range(lenght))
 	return result
-def checkNewVersion():
+def checkNewVersion(userCall = True):
 	from distutils.version import StrictVersion
 	try:
 		err = 'Unable to detect current version'
@@ -59,10 +59,18 @@ def checkNewVersion():
 		newVersion = StrictVersion(re.search('# Version: v([0-9\.]+)', newCode).group(1))
 	except AttributeError:
 		eprint(err)
-		return
-	if (currentVersion < newVersion): eprint('New version is available\nRun script with -u parametr for update')
-	else: eprint('You already have newest version')
+		return False
+	if (currentVersion < newVersion):
+		eprint('New version is available')
+		if(userCall): eprint('Run script with -u parametr for update')
+		return True
+	else:
+		eprint('You already have newest version')
+		return False
 def updateCode():
+	eprint('Script update status: CHECKING')
+	newVersion = checkNewVersion(False)
+	if (not newVersion): return
 	import os
 	from shutil import move
 	eprint('Are you sure you want to UPDATE script (y/n)?')
@@ -251,7 +259,7 @@ def printPlaylist(rtmp, playpath, app, pageURL, live='true', swfVfy='true'):
 def main():
 	user,password = credentials
 	parseArgs()
-	if (args.c):
+	if (args.c and not args.u):
 		checkNewVersion()
 		return
 	if (args.u):
