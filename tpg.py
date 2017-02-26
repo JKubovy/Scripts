@@ -1,6 +1,6 @@
 ﻿#!/usr/bin/env python3
 # Tipsport Playlist Generator
-# Version: v0.1.1
+# Version: v0.2
 # This script generate strm playlist from video-stream of ELH on tipsport.cz
 # Using:
 #	Start stream selector:		tpg.py > file.strm	
@@ -78,9 +78,13 @@ def updateCode():
 	if (i in ['y', 'Y']):
 		try:
 			newCode = requests.get(githubUrl)
-			tmpFile = os.path.dirname(__file__) + os.path.sep + '_tpg.tmp'
+			tmpFile = os.path.dirname(os.path.abspath(__file__)) + os.path.sep + '_tpg.tmp'
 			with open(tmpFile, 'w', encoding='utf-8') as f:
-				f.write(newCode.text)
+				for line in newCode.text.split('\n'):
+					if(re.match('^credentials ?\= ?\(.*\)', line) is not None):
+						f.write(u'credentials = (\'{0}\', \'{1}\')\n'.format(credentials[0], credentials[1]))
+					else:
+						f.write(line + u'\n')
 			move(tmpFile, __file__)
 			eprint('Script update status: SUCCESS')
 		except OSError:
