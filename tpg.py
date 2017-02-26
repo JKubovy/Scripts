@@ -1,6 +1,6 @@
 ﻿#!/usr/bin/env python3
 # Tipsport Playlist Generator
-# Version: v0.2
+# Version: v0.2.1
 # This script generate strm playlist from video-stream of ELH on tipsport.cz
 # Using:
 #	Start stream selector:		tpg.py > file.strm	
@@ -8,6 +8,12 @@
 #
 # Fill your credentials to tipsport.cz site below
 credentials = ('user', 'password')
+# Edit programs install paths
+# Example:
+#	rtmpdump_path = 'C:\\Program Files (x86)\\rtmpdump\\rtmpdump.exe'
+#	vlc_path = 'C:\\Program Files (x86)\\VLC\\vlc.exe'
+rtmpdump_path = 'rtmpdump'
+vlc_path = 'vlc'
 
 import re
 import sys
@@ -23,6 +29,7 @@ githubUrl = 'https://raw.githubusercontent.com/Xsichtik/Scripts/master/tpg.py'
 def parseArgs():
 	parser = argparse.ArgumentParser(description='Script that generate strm playlist of ELH stream on tipsport.cz')
 	parser.add_argument('url', nargs='?', default='', help='URL of ELH stream on tipsport.cz')
+	parser.add_argument('-v', '--vlc', action='store_true', help='print command to start stream in VLC via rtmpdump')
 	parser.add_argument('-c', action='store_true', help='check on GitHub if a new version is available')
 	parser.add_argument('-u', action='store_true', help='update/download source code from GitHub')
 	global args
@@ -260,6 +267,10 @@ def printPlaylist(rtmp, playpath, app, pageURL, live='true', swfVfy='true'):
 	swf = 'https://www.tipsport.org/scripts/libs/flowplayer/flowplayer.swf'
 	flashVer = 'WIN\\2024,0,0,194'
 	print('{0} playpath={1} app={2} pageURL={3} flashVer={7} swfUrl={4} live={5} swfVfy={6}'.format(rtmp, playpath, app, pageURL, swf, live, swfVfy, flashVer))
+def printVLC(url, playpath, app, pageURL):
+	swf = 'https://www.tipsport.org/scripts/libs/flowplayer/flowplayer.swf'
+	flashVer = 'WIN 24,0,0,194'
+	print('{6} -r "{0}" -y "{1}" -a "{2}" -p "{3}" -W "{4}" -f "{5}" --live -q | {7} -q -'.format(url, playpath, app, pageURL, swf, flashVer, rtmpdump_path, vlc_path))
 def main():
 	user,password = credentials
 	parseArgs()
@@ -273,10 +284,14 @@ def main():
 	login(user, password)
 	if (checkLogin()):
 		(rtmp, playpath, app) = getStreamMetadata(args.url)
-		printPlaylist(rtmp, playpath, app, args.url)
-		eprint('Playlist successful generated')
+		if (args.vlc): 
+			printVLC(rtmp, playpath, app, args.url)
+			eprint('Command successful generated')
+		else: 
+			printPlaylist(rtmp, playpath, app, args.url)
+			eprint('Playlist successful generated')
 	else:
-		eprint('Login to Tipsport.cz fails\ncheck credentials or internet connection')
+		eprint('Login to Tipsport.cz fails\nCheck credentials or internet connection')
 
 if __name__ == "__main__":
 	main()
