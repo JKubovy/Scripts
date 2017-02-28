@@ -1,6 +1,6 @@
 ﻿#!/usr/bin/env python3
 # Tipsport Playlist Generator
-# Version: v0.2.1
+# Version: v0.2.2
 # This script generate strm playlist from video-stream of ELH on tipsport.cz
 # Using:
 #	Start stream selector:		tpg.py > file.strm	
@@ -88,8 +88,12 @@ def updateCode():
 			tmpFile = os.path.dirname(os.path.abspath(__file__)) + os.path.sep + '_tpg.tmp'
 			with open(tmpFile, 'w', encoding='utf-8') as f:
 				for line in newCode.text.split('\n'):
-					if(re.match('^credentials ?\= ?\(.*\)', line) is not None):
+					if (re.match('^credentials', line) is not None):
 						f.write(u'credentials = (\'{0}\', \'{1}\')\n'.format(credentials[0], credentials[1]))
+					elif (re.match('^rtmpdump_path', line) is not None):
+						f.write(u'rtmpdump_path = \'{0}\'\n'.format(rtmpdump_path))
+					elif (re.match('^vlc_path', line) is not None):
+						f.write(u'vlc_path = \'{0}\'\n'.format(vlc_path))
 					else:
 						f.write(line + u'\n')
 			move(tmpFile, __file__)
