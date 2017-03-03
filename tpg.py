@@ -44,7 +44,7 @@ def checkUrl():
 	If not start Selector
 	'''
 	if (args.url == ''):
-		elh_matches = listELHMatches()
+		elh_matches = listMatches()
 		index = userSelect(elh_matches)
 		url = elh_matches[index][3]
 		args.url = 'https://www.tipsport.cz/live' + url
@@ -141,7 +141,6 @@ def checkLogin():
 def parseStreamDWRresponse(responseText):
 	'''
 	Parse response and try to get stream metadata
-	Expect <smil>...</smil> format of response
 	'''
 	if ('<smil>' in responseText):
 		try:
@@ -151,10 +150,41 @@ def parseStreamDWRresponse(responseText):
 		except (AttributeError, IndexError):
 			eprint('Unable to parse stream metadata')
 			sys.exit()
+	elif ('<data>' in responseText):
+		try:
+			url = (re.search('url\=\"(.*?)\"', responseText)).group(1)
+			auth = (re.search('auth\=\"(.*)\"', responseText)).group(1)
+			stream = (re.search('stream\=\"(.*)\"', responseText)).group(1)
+			app = url.split('/')[1]
+			url = 'rtmp://' + url
+			playpath = '{0}/{1}?auth={2}'.format(app, stream, auth)
+			if ('aifp="v001"' in responseText):
+				playpath = playpath + '&amp;aifp=1'
+		except (AttributeError, IndexError):
+			eprint('Unable to parse stream metadata')
+			sys.exit()
+	elif ('videohi' in responseText):
+		try:
+			url = (re.search('videohi\=(.*?)\&', responseText)).group(1)
+			app = (url.split('/'))[3]
+			playpath = app + '/' + (url.split(app + '/'))[1]
+			url = (url.split(app + '/'))[0] + app
+		except (AttributeError, IndexError):
+			eprint('Unable to parse stream metadata')
+			sys.exit()
+	elif ('rtmpUrl' in responseText):
+		try:
+			url = (re.search('\"rtmpUrl\"\:\"(.*?)\"', responseText)).group(1)
+			app = (url.split('/'))[3]
+			playpath = app + '/' + (url.split(app + '/'))[1]
+			url = (url.split(app + '/'))[0] + app
+		except (AttributeError, IndexError):
+			eprint('Unable to parse stream metadata')
+			sys.exit()
 	else:
 		eprint('Unsupported format of stream metadata')
 		sys.exit()
-	return (url, playpath, app)
+	return (urllib.parse.unquote(url), urllib.parse.unquote(playpath), app)
 def getToken(page):
 	'''Get scriptSessionId from page for proper DWRScript call'''
 	token = re.search('JAWR.dwr_scriptSessionId=\'([0-9A-Z]+)\'', page)
@@ -230,7 +260,7 @@ def userSelect(matches, index_name = 0):
 			eprint(u'Chosen stream: {0}'.format(matches[number-1][index_name]))
 			found = True
 	return(number-1)
-def listELHMatches():
+def listMatches():
 	'''Get list of all available ELH streams on https://www.tipsport.cz/tv'''
 	page = session.get('https://www.tipsport.cz/tv')
 	token = getToken(page.text)
@@ -250,16 +280,29 @@ def listELHMatches():
 	response = session.post(DWRScript, payload)
 	response.encoding = 'utf-8'
 	matches = re.findall('.*abbreaviation=\"(.*?)\".*competition=\"(.*?)\".*sport=\"(.*?)\".*url=\"(.*?)\".*', response.content.decode('unicode-escape'))
-	elh_matches = []
+	sports = []
 	for m in matches:
-		if (m[1] in ['Tipsport extraliga', 'CZ Tipsport extraliga']):
-			elh_matches.append(m)
-	if (len(elh_matches) == 0):
+		if(not [None, m[2]] in sports):
+			sports.append([None, m[2]])
+	index = userSelect(sports, 1)
+	sport = sports[index][1]
+	competitions = []
+	for m in matches:
+		if(not [None, m[1]] in competitions and m[2] == sport):
+			competitions.append([None, m[1]])
+	index = userSelect(competitions, 1)
+	competition = competitions[index][1]
+	selected_matches = []
+	for m in matches:
+		if (m[1] in [competition]):
+			selected_matches.append(m)
+	if (len(selected_matches) == 0):
 		eprint('No ELH stream found')
 		sys.exit()
-	return elh_matches
+	return selected_matches
 def checkCategory(url):
 	'''Check if the url point to ELH stream'''
+	return True	#	BYPASS FOR TESTING
 	try:
 		page = session.get(url)
 	except requests.exceptions.RequestException:
