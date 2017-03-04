@@ -24,6 +24,7 @@ import random
 import requests
 import argparse
 import unicodedata
+import urllib.parse
 
 session = requests.session()
 args = None
