@@ -1,6 +1,6 @@
 ﻿#!/usr/bin/env python3
 # Tipsport Playlist Generator
-# Version: v0.2.3
+# Version: v0.2.4
 '''
  This script generate strm playlist from video-stream of ELH on tipsport.cz
  Example:
@@ -38,6 +38,35 @@ def parseArgs():
 	parser.add_argument('-u', action='store_true', help='update/download source code from GitHub')
 	global args
 	args = parser.parse_args()
+def chooseStream(matches):
+	'''
+	Start selector for sport, competition and match from list matches
+	matches[0] = name
+	matches[1] = competition
+	matches[2] = sport
+	matches[3] = url
+	'''
+	sports = []
+	for m in matches:
+		if(not m[2] in sports):
+			sports.append(m[2])
+	index = userSelect(sports, -1)
+	sport = sports[index]
+	competitions = []
+	for m in matches:
+		if(not m[1] in competitions and m[2] == sport):
+			competitions.append(m[1])
+	index = userSelect(competitions, -1)
+	competition = competitions[index]
+	selected_matches = []
+	for m in matches:
+		if (m[1] == competition):
+			selected_matches.append(m)
+	if (len(selected_matches) == 0):
+		eprint(u'No stream found in {0}'.format(competition))
+		sys.exit()
+	index = userSelect(selected_matches, 0)
+	return selected_matches[index][3]
 def checkUrl():
 	'''
 	Check if some URL was given as parametr
@@ -45,9 +74,8 @@ def checkUrl():
 	If not start Selector
 	'''
 	if (args.url == ''):
-		elh_matches = listMatches()
-		index = userSelect(elh_matches)
-		url = elh_matches[index][3]
+		matches = listMatches()
+		url = chooseStream(matches)
 		args.url = 'https://www.tipsport.cz/live' + url
 	else:
 		if (args.url.startswith('www')): 
@@ -238,14 +266,17 @@ def getStreamMetadata(url):
 	url = responseUrl.group(1)
 	response = session.get(url)
 	return parseStreamDWRresponse(response.text)
-def userSelect(matches, index_name = 0):
+def userSelect(matches, index_name = -1):
 	'''
 	Start selector that allow user to choose stream from list
-	matches is two-dimensional array
+	matches is 2D array
 	index_name is index to array where the name of match is stored
+		index_name == -1 indicates that matches is 1D array
 	'''
 	for i in range(len(matches)):
-		eprint(u'{0}\t{1}'.format(i+1, matches[i][index_name]))
+		name = matches[i]
+		if (index_name > -1): name = name[index_name]
+		eprint(u'{0}\t{1}'.format(i+1, name))
 	found = False
 	while (not found):
 		eprint('Select one of stream by writing number {0}-{1}'.format(1, len(matches)))
@@ -258,7 +289,9 @@ def userSelect(matches, index_name = 0):
 		if (not number in range(1, len(matches) + 1)):
 			eprint('Wrong stream index')
 		else:
-			eprint(u'Chosen stream: {0}'.format(matches[number-1][index_name]))
+			name = matches[number-1]
+			if (index_name > -1): name = name[index_name]
+			eprint(u'Chosen stream: {0}'.format(name))
 			found = True
 	return(number-1)
 def listMatches():
@@ -281,26 +314,7 @@ def listMatches():
 	response = session.post(DWRScript, payload)
 	response.encoding = 'utf-8'
 	matches = re.findall('.*abbreaviation=\"(.*?)\".*competition=\"(.*?)\".*sport=\"(.*?)\".*url=\"(.*?)\".*', response.content.decode('unicode-escape'))
-	sports = []
-	for m in matches:
-		if(not [None, m[2]] in sports):
-			sports.append([None, m[2]])
-	index = userSelect(sports, 1)
-	sport = sports[index][1]
-	competitions = []
-	for m in matches:
-		if(not [None, m[1]] in competitions and m[2] == sport):
-			competitions.append([None, m[1]])
-	index = userSelect(competitions, 1)
-	competition = competitions[index][1]
-	selected_matches = []
-	for m in matches:
-		if (m[1] in [competition]):
-			selected_matches.append(m)
-	if (len(selected_matches) == 0):
-		eprint('No ELH stream found')
-		sys.exit()
-	return selected_matches
+	return(matches)
 def checkCategory(url):
 	'''Check if the url point to ELH stream'''
 	return True	#	BYPASS FOR TESTING
