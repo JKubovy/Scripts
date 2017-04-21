@@ -1,6 +1,6 @@
 ﻿#!/usr/bin/env python3
 # Tipsport Playlist Generator
-# Version: v0.2.4
+# Version: v0.2.5
 '''
  This script generate strm playlist from video-stream of ELH on tipsport.cz
  Example:
@@ -241,6 +241,7 @@ def getStreamMetadata(url):
 	page = session.get(url)
 	token = getToken(page.text)
 	relativeURL = url.replace('https://www.tipsport.cz', '')
+	relativeURL = relativeURL.split('#')[0]
 	DWRScript = 'https://www.tipsport.cz/dwr/call/plaincall/StreamDWR.getStream.dwr'
 	number = 'number:' + getStreamNumber(url)
 	payload={	'callCount': 1,
@@ -313,7 +314,7 @@ def listMatches():
 				'batchId': 2}
 	response = session.post(DWRScript, payload)
 	response.encoding = 'utf-8'
-	matches = re.findall('.*abbreaviation=\"(.*?)\".*competition=\"(.*?)\".*sport=\"(.*?)\".*url=\"(.*?)\".*', response.content.decode('unicode-escape'))
+	matches = re.findall('.*abbreviation=\"(.*?)\".*competition=\"(.*?)\".*sport=\"(.*?)\".*url=\"(.*?)\".*', response.content.decode('unicode-escape'))
 	return(matches)
 def checkCategory(url):
 	'''Check if the url point to ELH stream'''
