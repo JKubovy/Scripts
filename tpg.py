@@ -1,6 +1,6 @@
 ﻿#!/usr/bin/env python3
 # Tipsport Playlist Generator
-# Version: v0.2.5
+# Version: v0.2.6
 '''
  This script generate strm playlist from video-stream of ELH on tipsport.cz
  Example:
@@ -255,13 +255,13 @@ def getStreamMetadata(url):
 				'c0-param1': 'string:SMIL',
 				'batchId': 9}
 	response = session.post(DWRScript, payload)
-	pattern = '\"(.*)\"'
+	pattern = 'value:"(.*?)\"'
 	responseUrl = re.search(pattern, response.text)
-	if (responseUrl == None):	# use 'string:RTMP' insted of 'string:SMIL'
+	if (responseUrl == None or responseUrl.group(1) == "Stream nenalezen"):	# use 'string:RTMP' insted of 'string:SMIL'
 		payload['c0-param1'] = 'string:RTMP'
 		response = session.post(DWRScript, payload)
 	responseUrl = re.search(pattern, response.text)
-	if (responseUrl == None):	# StreamDWR.getStream.dwr not working on this specific stream
+	if (responseUrl == None or responseUrl.group(1) == "Stream nenalezen"):	# StreamDWR.getStream.dwr not working on this specific stream
 		eprint('Can\'t get stream metadata')
 		sys.exit()	
 	url = responseUrl.group(1)
