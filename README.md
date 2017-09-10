@@ -1,7 +1,7 @@
 # Useful scripts
 In this repository I will store all scripts that I use to simplify my life
 ## Playlist Generator
-Scripts to generate .strm file with sports stream from some sites. I use it to play these streams on [Kodi](https://kodi.tv). Scripts were made for **study purposes** only and I **do not** guide anyone to disrespect site rules.
+Scripts to generate .strm file with sports stream from some sites. I use it to play these streams on [Kodi](https://kodi.tv). For Kodi 17+ is necessary to enable RTMP Input Add-on and InputStream Adaptive Add-on in VideoPlayer InputStream section. Scripts were made for **study purposes** only and I **do not** guide anyone to disrespect site rules.
 
 Usually I use [Requests](http://docs.python-requests.org/en/master/) library for HTTP communication. Instructions for [install](http://docs.python-requests.org/en/master/user/install/) this library.
 
