@@ -1,6 +1,6 @@
 ﻿#!/usr/bin/env python3
 # Tipsport Playlist Generator
-# Version: v0.2.5
+# Version: v0.2.6
 '''
  This script generate strm playlist from video-stream of ELH on tipsport.cz
  Example:
@@ -21,6 +21,7 @@ vlc_path = 'vlc'
 import re
 import sys
 import random
+import urllib
 import requests
 import argparse
 import unicodedata
@@ -143,11 +144,22 @@ def parseStreamDWRresponse(responseText):
 	Parse response and try to get stream metadata
 	Expect <smil>...</smil> format of response
 	'''
+	responseText = urllib.parse.unquote(responseText)
 	if ('<smil>' in responseText):
 		try:
 			url = (re.search('meta base\=\"(.*?)\"', responseText)).group(1)
 			playpath = (re.search('video src\=\"(.*?)\"', responseText)).group(1)
 			app = (url.split(':80/'))[1]
+		except (AttributeError, IndexError):
+			eprint('Unable to parse stream metadata')
+			sys.exit()
+	elif ('RTMP_URL' in responseText):
+		try:
+			url = (re.search('\"RTMP_URL\"\:\"(.*?)\"', responseText)).group(1)
+			playpath = (url.split('/'))[-1]
+			url = url.replace('/' + playpath, '')
+			tokens = url.split('/')
+			app = '/'.join([tokens[-2], tokens[-1]])
 		except (AttributeError, IndexError):
 			eprint('Unable to parse stream metadata')
 			sys.exit()
@@ -196,18 +208,22 @@ def getStreamMetadata(url):
 				'c0-param1': 'string:SMIL',
 				'batchId': 9}
 	response = session.post(DWRScript, payload)
-	pattern = '\"(.*)\"'
-	responseUrl = re.search(pattern, response.text)
-	if (responseUrl == None):	# use 'string:RTMP' insted of 'string:SMIL'
+	type = re.search('type:"(.*?)"', response.text).group(1)
+	if (type == 'ERROR'):	# use 'string:RTMP' insted of 'string:SMIL'
 		payload['c0-param1'] = 'string:RTMP'
 		response = session.post(DWRScript, payload)
-	responseUrl = re.search(pattern, response.text)
-	if (responseUrl == None):	# StreamDWR.getStream.dwr not working on this specific stream
+	type = re.search('type:"(.*?)"', response.text).group(1)
+	if (type == 'ERROR'):	# StreamDWR.getStream.dwr not working on this specific stream
 		eprint('Can\'t get stream metadata')
-		sys.exit()	
-	url = responseUrl.group(1)
-	response = session.get(url)
-	return parseStreamDWRresponse(response.text)
+		sys.exit()
+	if (type == 'RTMP_URL'):
+		url = re.search('(rtmp.*?)"', response.content.decode('unicode-escape')).group(1).replace('\\u003d','=')
+		return parseStreamDWRresponse('"RTMP_URL":"{0}"'.format(url))
+	else:	
+		responseUrl = re.search('value:"(.*?)\"', response.text)
+		url = responseUrl.group(1)
+		response = session.get(url)
+		return parseStreamDWRresponse(response.text)
 def userSelect(matches, index_name = 0):
 	'''
 	Start selector that allow user to choose stream from list
@@ -250,7 +266,7 @@ def listELHMatches():
 				'batchId': 2}
 	response = session.post(DWRScript, payload)
 	response.encoding = 'utf-8'
-	matches = re.findall('.*abbreviation=\"(.*?)\".*competition=\"(.*?)\".*sport=\"(.*?)\".*url=\"(.*?)\".*', response.content.decode('unicode-escape'))
+	matches = re.findall('.*abbrName=\"(.*?)\".*competition=\"(.*?)\".*sport=\"(.*?)\".*url=\"(.*?)\".*', response.content.decode('unicode-escape'))
 	elh_matches = []
 	for m in matches:
 		if (m[1] in ['Tipsport extraliga', 'CZ Tipsport extraliga']):
