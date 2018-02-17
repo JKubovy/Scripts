@@ -67,6 +67,7 @@ class Renamer:
 		self.count_renamed = 0
 		self.count_skipped = 0
 		self.count_no_subtitles = 0
+		self.count_unrecognised = 0
 	
 	def next_directory(self):
 		'''Expanding given directories and yield them'''
@@ -80,11 +81,11 @@ class Renamer:
 		for start_directory in self.next_directory():
 			for root, _, files in os.walk(start_directory):
 				logger.debug('Entering folder: {0}'.format(root))
-				movies, tvshows, subtitles = self.get_videos_and_subtitles(files)
+				video_movies, video_tvshows, subtitles_movies, subtitles_tvshows = self.get_videos_and_subtitles(files)
 				if args.movies:
-					self.find_sub_for_movies(root, movies, subtitles)
+					self.find_sub_for_movies(root, video_movies, subtitles_movies)
 				if args.shows:
-					self.find_sub_for_shows(root, tvshows, subtitles)
+					self.find_sub_for_shows(root, video_tvshows, subtitles_tvshows)
 				if not self.args.recursive:
 					break
 		self.print_info()
@@ -105,20 +106,16 @@ class Renamer:
 	def find_sub_for_movies(self, root, movies, subtitles):
 		'''Try to find suitable subtitle for every movie in movies collection'''
 		for movie in movies:
-			if 'title' in movie:
-				possible_subtitles = [sub for sub in subtitles if ('title' in sub and sub['title'] == movie['title'])]
-				self.check_subtitles(root, movie, possible_subtitles)
-			else:
-				logger.debug('Unrecognized movie name: {0}'.format(movie['orig_name']))
+			possible_subtitles = [sub for sub in subtitles if sub['title'] == movie['title']]
+			self.check_subtitles(root, movie, possible_subtitles)
 	
 	def find_sub_for_shows(self, root, shows, subtitles):
 		'''Try to find suitable subtitle for every tv show in shows collection'''
 		for show in shows:
-			if all(item in show for item in ['title', 'season', 'episode']):
-				possible_subtitles = [sub for sub in subtitles if (all(item in sub for item in ['title', 'season', 'episode']) and sub['title'] == show['title'] and sub['season'] == show['season'] and show['episode'] == sub['episode'])]
-				self.check_subtitles(root, show, possible_subtitles)
-			else:
-				logger.debug('Unrecognized TV show metadata: {0}'.format(show['orig_name']))
+			possible_subtitles = [sub for sub in subtitles if sub['title'] == show['title'] and
+															  sub['season'] == show['season'] and
+															  show['episode'] == sub['episode']]
+			self.check_subtitles(root, show, possible_subtitles)
 	
 	def try_rename_subtitles(self, root, source_filename, to_rename_filename):
 		'''Check if the subtitle name match video neame and if not rename subtitle file'''
@@ -130,31 +127,64 @@ class Renamer:
 		else:
 			logger.info('Renamed: {0} -> {1}'.format(to_rename_filename, source_name + to_rename_extension))
 			if not args.dry_run:
-				os.rename(os.path.join(root, to_rename_name + to_rename_extension), os.path.join(root, source_name + to_rename_extension))
+				try:
+					os.rename(os.path.join(root, to_rename_name + to_rename_extension), os.path.join(root, source_name + to_rename_extension))
+				except FileNotFoundError:
+					logger.warning('File already renamed: {0}'.format(to_rename_filename))
 			self.count_renamed += 1
 	
+	def get_uniformed_name(self, name):
+		'''Return uniform name to have better chance to match identical videos'''
+		name = name.replace('-', '_')	# guessit module need underscope
+		name = name.replace('\'s', 's')	# get rid of difference between "Someone's" and "Someones"
+		name = name.lower()				# No need to be Capital names
+		return name
+
 	def get_videos_and_subtitles(self, files):
-		'''Split given files into three collections. Return movies, tv shows and subtitles'''
-		movies = []
-		tvshows = []
-		subtitles = []
+		'''
+		Split given files into four collections - video_movies, video_tvshows, subtitles_movies, subtitles_tvshows.
+		All movie files have 'title' info and tv shows have 'title', 'season' and 'episode' info.
+		'''
+		video_movies = []
+		video_tvshows = []
+		subtitles_movies = []
+		subtitles_tvshows = []
 		for filename in files:
-			if not any(filename.endswith(ext) for ext in self.args.video_extensions + self.args.subtitle_extensions): # drop unwanted files
+			if not any(filename.endswith(ext) for ext in self.args.video_extensions + self.args.subtitle_extensions):
+			# drop unwanted files based on file extensin
 				continue
 			logger.debug('Parsing name: {0}'.format(filename))
 			try:
-				name_parsed = guessit(filename.replace('-', '_').lower())
+				name_parsed = guessit(self.get_uniformed_name(filename))
 				name_parsed['orig_name'] = filename
-				if name_parsed['container'] in self.args.video_extensions:
-					if name_parsed['type'] == 'movie':
-						movies.append(name_parsed)
-					elif name_parsed['type'] == 'episode':
-						tvshows.append(name_parsed)
-				elif name_parsed['container'] in self.args.subtitle_extensions:
-					subtitles.append(name_parsed)
+				if name_parsed['type'] == 'movie':
+				#file is movie or movie subtitle
+					if 'title' in name_parsed:
+						if name_parsed['container'] in self.args.video_extensions:
+							video_movies.append(name_parsed)
+						elif name_parsed['container'] in self.args.subtitle_extensions:
+							subtitles_movies.append(name_parsed)
+					else:
+						self.count_unrecognised += 1
+						logger.debug('Unrecognized movie name: {0}'.format(name_parsed['orig_name']))
+				elif name_parsed['type'] == 'episode':
+				#file is tv show or tv show subtitle
+					if all(item in name_parsed for item in ['title', 'season', 'episode']):
+						if name_parsed['container'] in self.args.video_extensions:
+							video_tvshows.append(name_parsed)
+						elif name_parsed['container'] in self.args.subtitle_extensions:
+							subtitles_tvshows.append(name_parsed)
+					else:
+						self.count_unrecognised += 1
+						logger.debug('Unrecognized TV show metadata: {0}'.format(name_parsed['orig_name']))
+				else:
+				#unkonwn file name
+					self.count_unrecognised += 1
+					logger.debug('Unrecognized: {0}'.format(filename))
 			except KeyError:
+				self.count_unrecognised += 1
 				logger.debug('Unrecognized: {0}'.format(filename))
-		return movies, tvshows, subtitles
+		return video_movies, video_tvshows, subtitles_movies, subtitles_tvshows
 	
 	def print_info(self):
 		'''Print how many files were processed'''
@@ -163,7 +193,9 @@ class Renamer:
 		if self.count_skipped > 0:
 			logger.info('Skipped files: {0}'.format(self.count_skipped))
 		if self.count_no_subtitles > 0:
-			logger.info('No subtitles: {0}'.format(self.count_no_subtitles))	
+			logger.info('No subtitles: {0}'.format(self.count_no_subtitles))
+		if self.count_unrecognised > 0:
+			logger.info('Unrecognised: {0}'.format(self.count_unrecognised))
 				
 def main(args):
 	init_logger(args.loglevel)
