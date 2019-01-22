@@ -21,3 +21,7 @@ rensub [PH]*_movie
 matches all folder starting with letter **P** or **H** and ending with **_movie**
 
 All possible script argument can be found with ```rensub --help```
+
+
+## Fix Opera
+Remove default search engine from Opera. It has to be run **as Administrator** after every Opera's update. Basically it compromise file with saved search engines but in clever way so Opera don't say it's been corrupted.
